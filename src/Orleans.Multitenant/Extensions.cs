@@ -192,7 +192,12 @@ public static class ServiceCollectionExtensions
 /// <param name="providerName">The name - without the tenant id - of the provider; can be used to access named provider services that are not tenant specific</param>
 /// <param name="tenantProviderName">The name - including the tenant id - of the tenant provider; can be used to access named provider services that are tenant specific</param>
 /// <param name="options">The options to pass to the provider. Note that configureTenantOptions and options validation have already been executed on this</param>
-/// <returns>The tenant storage provider construction parameters to pass to DI. Don't include <paramref name="tenantProviderName"/> in these; it is added automatically</returns>
+/// <returns>
+/// The complete set of tenant storage provider construction parameters to pass to DI.<br />
+/// When this factory is provided, it has full ownership of the parameter list — <paramref name="tenantProviderName"/> is NOT prepended automatically.<br />
+/// This allows providers with non-standard constructor signatures (e.g. RavenDbGrainStorage, which does not accept a string name as its first parameter) to work correctly.<br />
+/// For standard providers that DO follow the <c>(string name, TOptions options)</c> convention, omit this factory and rely on the default behavior.
+/// </returns>
 public delegate object[] GrainStorageProviderParametersFactory<in TGrainStorageOptions>(
     IServiceProvider services,
     string providerName,
