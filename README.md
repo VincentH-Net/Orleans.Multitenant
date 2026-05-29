@@ -1,6 +1,9 @@
 ﻿# <img src="img/CSharp-Toolkit-Icon.png" alt="Backend Toolkit" width="64px" />Orleans.Multitenant
 Secure, flexible tenant separation for Microsoft Orleans 10 on .NET 10
 
+> [!TIP]
+> You can get **agentic engineering** support to let agents use this library in [.NET Agentic Engineering](https://github.com/VincentH-Net/dotnet-agentic-engineering)
+
 > [![Nuget (with prereleases)](https://img.shields.io/nuget/vpre/Orleans.Multitenant?color=gold&label=NuGet:%20Orleans.Multitenant&style=plastic)](https://www.nuget.org/packages/Orleans.Multitenant)<br />
 > (install in silo client and grain implementation projects)
 
