@@ -26,7 +26,7 @@ readonly record struct LifecycleStartEventRecord(int LifecycleIndex, int Highest
 
 sealed class SiloLifecycleRepeater : IRepeatedSiloLifecycleObservable
 {
-    internal static int[] AllServiceLifecycleStages { get; } =
+    internal static int[] AllServiceLifecycleStages => field ??=
         [.. typeof(ServiceLifecycleStage).GetFields(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static).Where(fi => fi.FieldType == typeof(int))
         .Select(fi => (int)(fi.GetValue(null) ?? throw new InvalidCastException("static int field cannot have value null"))).OrderBy(value => value)];
 
