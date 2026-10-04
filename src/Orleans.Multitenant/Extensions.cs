@@ -3,6 +3,8 @@ using Microsoft.Extensions.Options;
 using Orleans.Multitenant.Internal;
 using Orleans.Providers;
 using Orleans.Storage;
+using Orleans.Streams;
+using Orleans.Streams.Core;
 
 namespace Orleans.Multitenant;
 
@@ -97,16 +99,23 @@ public static class SiloBuilderExtensions
     /// <param name="name">The stream provider name</param>
     /// <param name="addStreamProvider">
     /// Function to register a regular (tenant unaware) stream provider, using the provider name parameter that is passed into the function<br />
-    /// You can place the same statement(s) in this function that you would normally use to register the stream provider without multi tenancy
+    /// You can place the same statement(s) in this function that you would normally use to register the stream provider without multi tenancy<br />
+    /// This includes registering a stream filter for the provider: the filter is invoked for events that were sent with the tenant aware API, and it receives the same events as it would without multi tenancy
     /// </param>
     /// <returns>The same instance of the <see cref="ISiloBuilder"/> for chaining</returns>
+    /// <remarks>
+    /// Do not register a stream filter for the stream provider after calling this method; that would disable tenant separation for the stream provider,
+    /// which is why it causes an <see cref="OrleansConfigurationException"/> to be thrown on silo startup
+    /// </remarks>
     public static ISiloBuilder AddMultitenantStreams(
         this ISiloBuilder builder,
         string name,
         Func<ISiloBuilder, string, ISiloBuilder> addStreamProvider)
     {
         ArgumentNullException.ThrowIfNull(addStreamProvider);
-        return addStreamProvider(builder, name).AddStreamFilter<TenantSeparatingStreamFilter>(name);
+        return addStreamProvider(builder, name)
+            .AddStreamFilter<TenantSeparatingStreamFilter>(name)
+            .ConfigureServices(services => services.AddTransient<IConfigurationValidator>(sp => new TenantSeparatingStreamFilterValidator(sp, name)));
     }
 }
 
@@ -254,6 +263,22 @@ public static class ClusterClientExtensions
     => new(tenantId.AsTenantId(), client.GetStreamProvider(name));
 }
 
+public static class StreamSubscriptionHandleFactoryExtensions
+{
+    /// <summary>
+    /// Create a stream subscription handle for a tenant stream, e.g. in the <see cref="IStreamSubscriptionObserver.OnSubscribed(IStreamSubscriptionHandleFactory)"/> method of a <see cref="Grain"/> that has an implicit subscription to a tenant stream.<br />
+    /// This is the tenant aware equivalent of <see cref="IStreamSubscriptionHandleFactory.Create{T}"/>
+    /// </summary>
+    /// <typeparam name="T">The stream element type</typeparam>
+    /// <param name="handleFactory">The handle factory for a subscription to a tenant stream</param>
+    /// <returns>The stream subscription handle</returns>
+    public static StreamSubscriptionHandle<T> CreateTenantHandle<T>(this IStreamSubscriptionHandleFactory handleFactory)
+    {
+        ArgumentNullException.ThrowIfNull(handleFactory);
+        return new TenantStreamSubscriptionHandle<T>(handleFactory.Create<TenantEvent<T>>());
+    }
+}
+
 public static class GrainFactoryExtensions
 {
     /// <summary>Get a tenant-specific grain factory from an <see cref="IAddressable"/> (i.e. a grain), for the tenant that this grain belongs to</summary>
@@ -308,7 +333,7 @@ public static class StreamIdExtensions
     /// <param name="streamId">This stream id</param>
     /// <returns>The tenant id</returns>
     public static string? GetTenantId(this StreamId streamId)
-    => streamId.Key.Span.TenantIdString();
+    => streamId.TryGetTenantId().TenantIdString();
 
     /// <summary>Get the part of the <see cref="StreamId"/> key that identifies it within it's tenant</summary>
     /// <param name="streamId">This stream id</param>

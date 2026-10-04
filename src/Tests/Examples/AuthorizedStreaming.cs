@@ -52,7 +52,7 @@ sealed class StreamProducerGrain : Grain, IStreamProducerGrain
 sealed class ImplicitStreamSubscriberGrain : Grain, IImplicitStreamSubscriberGrain
 {
     int? lastValue;
-    StreamSubscriptionHandle<TenantEvent<int>>? tenantAwaresubscription;
+    StreamSubscriptionHandle<int>? tenantAwaresubscription;
     StreamSubscriptionHandle<int>? tenantUnawaresubscription;
 
     async Task EnsureUnsubscribed()
@@ -73,7 +73,7 @@ sealed class ImplicitStreamSubscriberGrain : Grain, IImplicitStreamSubscriberGra
             tenantUnawaresubscription = await this.GetTenantUnawareStream(streamId).SubscribeAsync(OnNext);
     }
 
-    Task OnNext(int value, StreamSequenceToken token)
+    Task OnNext(int value, StreamSequenceToken? token)
     {
         if (lastValue is not null) throw new InvalidOperationException("Received new value before previous value was extracted");
         lastValue = value;
@@ -91,7 +91,7 @@ sealed class ImplicitStreamSubscriberGrain : Grain, IImplicitStreamSubscriberGra
 sealed class ExplicitStreamSubscriberGrain : Grain, IExplicitStreamSubscriberGrain
 {
     int? lastValue;
-    StreamSubscriptionHandle<TenantEvent<int>>? tenantAwaresubscription;
+    StreamSubscriptionHandle<int>? tenantAwaresubscription;
     StreamSubscriptionHandle<int>? tenantUnawaresubscription;
 
     async Task EnsureUnsubscribed()
@@ -112,7 +112,7 @@ sealed class ExplicitStreamSubscriberGrain : Grain, IExplicitStreamSubscriberGra
             tenantUnawaresubscription = await this.GetTenantUnawareStream(streamId).SubscribeAsync(OnNext);
     }
 
-    Task OnNext(int value, StreamSequenceToken token)
+    Task OnNext(int value, StreamSequenceToken? token)
     {
         if (lastValue is not null) throw new InvalidOperationException("Received new value before previous value was extracted");
         lastValue = value;

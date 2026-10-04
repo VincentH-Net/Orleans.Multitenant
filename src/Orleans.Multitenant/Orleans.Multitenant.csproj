@@ -13,7 +13,9 @@
     <PropertyGroup>
         <IsPackable>true</IsPackable>
         <PackageId>Orleans.Multitenant</PackageId>
-        <PackageVersion>4.0.1</PackageVersion>
+        <PackageVersion>5.0.0</PackageVersion>
+        <!-- The tag of the GitHub release for PackageVersion, e.g. 5-0-0. The release notes link in the package readme is generated from this -->
+        <ReleaseTag>$(PackageVersion.Replace('.', '-'))</ReleaseTag>
         <Title>Orleans Multitenant</Title>
         <Description>Secure, flexible tenant separation for Microsoft Orleans 10</Description>
         <Authors>VincentH.NET</Authors>
@@ -37,14 +39,26 @@
     </PropertyGroup>
     <ItemGroup>
         <None Include="CSharp-Toolkit-Icon.png" Pack="true" PackagePath="\" />
-        <None Include="Readme.md" Pack="true" PackagePath="\" />
+        <None Include="$(IntermediateOutputPath)Readme.md" Pack="true" PackagePath="\" Visible="false" />
     </ItemGroup>
 
+    <!-- The package readme is generated from Readme.md, so that its release notes link always matches PackageVersion -->
+    <Target Name="GeneratePackageReadme" BeforeTargets="BeforeBuild">
+        <PropertyGroup>
+            <PackageReadmeTemplate>$([System.IO.File]::ReadAllText('$(MSBuildProjectDirectory)/Readme.md'))</PackageReadmeTemplate>
+        </PropertyGroup>
+        <Error Condition="!$(PackageReadmeTemplate.Contains('{ReleaseTag}'))"
+               Text="Readme.md must link to the release notes with the {ReleaseTag} placeholder; do not write a release tag in Readme.md, it is generated from PackageVersion" />
+        <WriteLinesToFile File="$(IntermediateOutputPath)Readme.md"
+                          Lines="$([MSBuild]::Escape($(PackageReadmeTemplate.Replace('{ReleaseTag}', '$(ReleaseTag)'))))"
+                          Overwrite="true" WriteOnlyWhenDifferent="true" />
+    </Target>
+
     <ItemGroup>
-		<PackageReference Include="Microsoft.Orleans.Runtime" Version="10.0.1" />
-		<PackageReference Include="Microsoft.Orleans.Sdk" Version="10.0.1" />
-		<PackageReference Include="Microsoft.Orleans.Streaming" Version="10.0.1" />
-        <PackageReference Include="Microsoft.SourceLink.GitHub" Version="8.0.0" PrivateAssets="All" />
+		<PackageReference Include="Microsoft.Orleans.Runtime" Version="10.4.0" />
+		<PackageReference Include="Microsoft.Orleans.Sdk" Version="10.4.0" />
+		<PackageReference Include="Microsoft.Orleans.Streaming" Version="10.4.0" />
+        <PackageReference Include="Microsoft.SourceLink.GitHub" Version="10.0.111" PrivateAssets="All" />
 	</ItemGroup>
 
 </Project>

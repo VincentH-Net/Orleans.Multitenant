@@ -21,11 +21,11 @@ However, creating multi tenant applications with Orleans out of the box requires
 
 - **Choose where to use** - for part or all of an application; combine regular stream/storage providers with multitenant ones, use tenant-specific grains/streams and tenant unaware ones. Want to add multitenant storage to an existing application? You can bring along existing grain state in the null tenant. Or add a multitenant storage provider and keep the existing non-multitenant provider as well
 
-- **Secure** against development mistakes: unauthorized access to a tenant specific grain or stream throws an `UnauthorizedException`, and using a non-tenant aware API on a tenant aware stream is blocked and logged.
+- **Secure** against development mistakes: unauthorized access to a tenant specific grain or stream throws an `UnauthorizedAccessException`, and using a non-tenant aware API on a tenant aware stream is blocked and logged.
 
 ## Requirements
 - .NET 10 SDK for building and testing this repository
-- Microsoft Orleans 10 packages in consuming applications
+- Microsoft Orleans 10.4 or later packages in consuming applications
 
 ## Installation
 Install the package in silo, client and grain implementation projects:
@@ -52,12 +52,12 @@ To add tenant storage separation to any Orleans storage provider, use `AddMultit
 siloBuilder
 .AddMultitenantGrainStorageAsDefault<AzureTableGrainStorage, AzureTableStorageOptions, AzureTableGrainStorageOptionsValidator>(
     (silo, name) => silo.AddAzureTableGrainStorage(name, options =>
-        options.ConfigureTableServiceClient(tableStorageConnectionString)),
+        options.TableServiceClient = new(tableStorageConnectionString)),
         // Called during silo startup, to ensure that any common dependencies
         // needed for tenant-specific provider instances are initialized
 
     configureTenantOptions: (options, tenantId) => {
-        options.ConfigureTableServiceClient(tableStorageConnectionString);
+        options.TableServiceClient = new(tableStorageConnectionString);
         options.TableName = $"OrleansGrainState{tenantId}";
     }   // Called on the first grain state access for a tenant in a silo,
         // to initialize the options for the tenant-specific provider instance
@@ -69,6 +69,27 @@ siloBuilder
 By default, the parameters passed into the storage provider instance for a tenant are the tenant provider name (which contains the tenant Id) and the tenant options. Some storage providers may expect a different (wrapper) type for the options, or you may want to pass in additional parameters (e.g. `ClusterOptions`).
 
 To do this, you can pass in an optional `GrainStorageProviderParametersFactory<TGrainStorageOptions>? getProviderParameters` parameter.
+
+When a storage provider has a constructor parameter that is not registered as a service and you do not pass it in, creating the storage provider for a tenant fails with an `InvalidOperationException` like `Unable to resolve service for type ... while attempting to activate ...`.
+
+##### Example: Azure Blob Storage for grain state
+The constructor of the Orleans Azure Blob storage provider has an `IBlobContainerFactory` parameter. This is not registered as a service; Orleans creates it from the storage options. Use `getProviderParameters` to do the same for the tenant storage providers:
+
+```csharp
+siloBuilder
+.AddMultitenantGrainStorageAsDefault<AzureBlobGrainStorage, AzureBlobStorageOptions, AzureBlobStorageOptionsValidator>(
+    (silo, name) => silo.AddAzureBlobGrainStorage(name, options =>
+        options.BlobServiceClient = new(blobStorageConnectionString)),
+
+    configureTenantOptions: (options, tenantId) => {
+        options.BlobServiceClient = new(blobStorageConnectionString);
+        options.ContainerName = $"grainstate-{tenantId.ToLowerInvariant()}"; // Blob container names must be lowercase
+    },
+
+    getProviderParameters: (services, providerName, tenantProviderName, options) =>
+        [options, options.BuildContainerFactory(services, options)]
+ )
+```
 
 ##### Example: .NET Aspire with Azure Blob Storage for grain state
 If you are using the [.NET Aspire Orleans Integration](https://learn.microsoft.com/en-us/dotnet/aspire/frameworks/orleans) to configure the default grain storage for the silo like this:
@@ -153,7 +174,30 @@ To configure a silo to use a specific stream provider type as a named stream pro
     .AddMemoryGrainStorage(name)
  )
 ```
-Both implicit and explicit stream subscriptions are supported.
+Both implicit and explicit stream subscriptions are supported; see [Subscribe to tenant streams](#subscribe-to-tenant-streams).
+
+#### Stream filters
+To use an Orleans stream filter with a multitenant stream provider, register the filter in the same function that registers the stream provider:
+```csharp
+.AddMultitenantStreams(
+    "provider_name", (silo, name) => silo
+    .AddMemoryStreams<DefaultMemoryMessageBodySerializer>(name)
+    .AddMemoryGrainStorage(name)
+    .AddStreamFilter<MyStreamFilter>(name)
+ )
+```
+The filter is invoked for events that were sent with the tenant aware API, and it receives the same events as it would without multi tenancy. Events that were sent with a tenant unaware API are blocked before they reach the filter.
+```csharp
+class MyStreamFilter : IStreamFilter
+{
+    // item is the event as it was sent (e.g. an int for a TenantStream<int>);
+    // streamId.GetTenantId() and streamId.GetKeyWithinTenant() identify the tenant stream
+    public bool ShouldDeliver(StreamId streamId, object item, string? filterData)
+    => item is int number && number % 2 == 0; // Only deliver even numbers
+}
+```
+
+Do not register a stream filter for the stream provider after `AddMultitenantStreams`. Orleans only uses the stream filter that was registered last for a stream provider, so this would disable tenant separation for the provider; to guard against that, it causes an `OrleansConfigurationException` on silo startup.
 
 ### Add multitenant communication separation
 To configure a silo to use tenant separation for grain communication, use `AddMultitenantCommunicationSeparation` . Separation will be enforced for both grain calls and streams (the latter if used together with `AddMultitenantStreams`)
@@ -204,7 +248,7 @@ Where a tenant grain is available,
   ```
   A tenant stream provider is a very lightweight, allocation-free stream provider wrapper; it can be stored/cached as desired, but it's overhead is extremely low even without that.
 
-- To access streams that belong to another tenant, use the `Grain` extension method `this.GetTenantStreamProvider("provider_name", "tenant_id"):
+- To access streams that belong to another tenant, use the `Grain` extension method `this.GetTenantStreamProvider("provider_name", "tenant_id")`:
   ```csharp
   var otherTenantStream = this.GetTenantStreamProvider("provider_name", "tenant_id").GetStream<int>("stream_namespace", "stream_key_within_tenant");
   ```
@@ -218,12 +262,60 @@ Where no tenant grain is available (e.g. in a cluster client, a stateless worker
   var tenantGrain = factory.ForTenant("tenant_id").GetGrain<IMyGrain>("key_within_tenant");
   ```
 
-- To access tenant streams, use the `IClusterClient` extension method `client.GetTenantStreamProvider("provider name", "tenant id"):<br />
+- To access tenant streams, use the `IClusterClient` extension method `client.GetTenantStreamProvider("provider name", "tenant id")`:<br />
   ```csharp
   var tenantStream = client.GetTenantStreamProvider("provider_name", "tenant_id").GetStream<int>("stream_namespace", "stream_key_within_tenant");
   ```
 
 **Note** that guarding against unauthorized tenant access that is not initiated from a tenant grain (e.g. when using a cluster client in an ASP.NET controller, or in a stateless worker grain or a grain service) is the responsibility of the application developer, since what constitutes a tenant context there is application specific
+
+### Subscribe to tenant streams
+A `TenantStream<T>` offers the same methods as an Orleans `IAsyncStream<T>`, including the `SubscribeAsync` methods that take delegates. Subscriptions are regular Orleans `StreamSubscriptionHandle<T>`s, so once you have a tenant stream, you publish, subscribe, resume and unsubscribe with the regular Orleans API:
+```csharp
+var stream = this.GetTenantStreamProvider("provider_name").GetStream<int>("stream_namespace", "stream_key_within_tenant");
+
+// Publish an event, or a batch of events
+await stream.OnNextAsync(1);
+await stream.OnNextBatchAsync([2, 3]);
+
+// Subscribe to receive events one by one, or in batches
+StreamSubscriptionHandle<int> handle = await stream.SubscribeAsync(OnNextAsync);
+StreamSubscriptionHandle<int> batchHandle = await stream.SubscribeAsync(OnNextBatchAsync);
+
+await handle.UnsubscribeAsync();
+```
+```csharp
+Task OnNextAsync(int item, StreamSequenceToken? token) { /* ... */ }
+
+Task OnNextBatchAsync(IList<SequentialItem<int>> items) { /* ... */ }
+```
+
+- To start a subscription at the earliest event that the stream provider still has available, instead of at the latest event, subscribe an `IAsyncObserver<T>` or an `IAsyncBatchObserver<T>` with a `StreamSubscriptionStartPosition`:
+  ```csharp
+  var handle = await stream.SubscribeAsync(observer, StreamSubscriptionStartPosition.EarliestAvailable);
+  ```
+
+- For explicit subscriptions, resume the subscriptions when the grain is activated:
+  ```csharp
+  public override async Task OnActivateAsync(CancellationToken cancellationToken)
+  {
+      var stream = this.GetTenantStreamProvider("provider_name").GetStream<int>("stream_namespace", "stream_key_within_tenant");
+
+      foreach (var handle in await stream.GetAllSubscriptionHandles())
+          await handle.ResumeAsync(OnNextAsync);
+  }
+  ```
+
+- For implicit subscriptions, either call `SubscribeAsync` on the tenant stream when the grain is activated, or implement `IStreamSubscriptionObserver` and use the `IStreamSubscriptionHandleFactory` extension method `handleFactory.CreateTenantHandle<T>()`, which is the tenant aware equivalent of `handleFactory.Create<T>()`:
+  ```csharp
+  public async Task OnSubscribed(IStreamSubscriptionHandleFactory handleFactory)
+  {
+      var handle = handleFactory.CreateTenantHandle<int>();
+      await handle.ResumeAsync(this);
+  }
+  ```
+
+Like Orleans stream subscription handles, the handles of tenant stream subscriptions can be stored in grain state, to resume the subscription with the stored handle when the grain is activated.
 
 ### Grain/stream key and tenant id
 Tenant id's are stored in the key of a tenant specific `GrainId` / `StreamId`. Use these methods to access the individual parts of the key:
@@ -250,3 +342,26 @@ The `MultitenantStorageOptions.TenantIdForNullTenant` setting specifies the non-
 ### Tenant unaware streams
 To access tenant unaware streams (e.g. streams whose keys are defined by 3rd party code), use the Orleans built-in `IStreamProvider`. There is no need for an `ICrossTenantAuthorizer` to enable this access, because an `IStreamProvider` does not have the `TenantSeparatingStreamFilter` attached.
 
+## Upgrade from 4.x to 5.0
+Version 5.0 makes the use of tenant streams transparent after a tenant stream is obtained: the regular Orleans API can be used to resume and unsubscribe subscriptions.
+
+**Breaking changes**
+- Orleans 10.4.0 or later is required; 4.x required Orleans 10.0.1 or later
+- The `SubscribeAsync` methods and `GetAllSubscriptionHandles` of `TenantStream<T>` return `StreamSubscriptionHandle<T>` instead of `StreamSubscriptionHandle<TenantEvent<T>>`. Where you declared the handle type, replace `StreamSubscriptionHandle<TenantEvent<T>>` with `StreamSubscriptionHandle<T>`
+- `TenantEvent<T>` is no longer public; this ensures that only the tenant aware API can send events to tenant streams. The serialized form of stream events is unchanged
+- Registering a stream filter for a multitenant stream provider after `AddMultitenantStreams` causes an `OrleansConfigurationException` on silo startup; before 5.0 this silently disabled tenant separation for the stream provider. Register the stream filter in the `addStreamProvider` function instead (see [Stream filters](#stream-filters))
+- Like the Orleans `SubscribeAsync` methods since Orleans 10.3, the `onNextAsync` delegate of the `TenantStream<T>.SubscribeAsync` methods has a nullable `StreamSequenceToken?` parameter. With nullable reference types enabled, a handler method that declares a non-nullable `StreamSequenceToken` parameter causes warning CS8622; declare the parameter as `StreamSequenceToken?`
+- `TenantStreamProvider.GetStream<T>(namespace, keyWithinTenant)` no longer interprets `keyWithinTenant` as a key that may include a tenant ID; any string is now a valid stream key within a tenant, as it already was for grains. If you pass a key that includes the tenant ID to this method (e.g. `this.GetPrimaryKeyString()` in a grain that has an implicit subscription), pass `this.GetKeyWithinTenant()` instead, or use `GetStream<T>(StreamId)`, which still accepts a key that includes the tenant ID
+
+**New**
+- `StreamSubscriptionHandle<T>.ResumeAsync` and all `StreamSubscriptionHandleExtensions.ResumeAsync` methods work on subscriptions to tenant streams
+- `handleFactory.CreateTenantHandle<T>()` for implicit subscriptions that use `IStreamSubscriptionObserver`
+- `TenantStream<T>.SubscribeAsync` methods that take a batch delegate
+- `TenantStream<T>.SubscribeAsync` methods that take a `StreamSubscriptionStartPosition` (new in Orleans 10.4), to start a subscription at the latest or at the earliest available event
+- A stream filter that is registered in `addStreamProvider` is invoked; before 5.0 it was silently ignored
+- When a tenant storage provider cannot be created, the exception explains that `getProviderParameters` can supply constructor parameters that are not registered as services; the readme has a separate Azure Blob Storage example for this
+
+**Fixed**
+- `TenantStream<T>.OnNextBatchAsync` threw an `InvalidCastException`
+- `StreamId.GetTenantId()` returned an incorrect value
+- `TenantStreamProvider.GetStream<T>(namespace, keyWithinTenant)` threw an `ArgumentException`, or returned a stream with a different key, for a key within a tenant that contains the `|` character
