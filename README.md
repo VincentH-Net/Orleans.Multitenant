@@ -153,7 +153,21 @@ To configure a silo to use a specific stream provider type as a named stream pro
     .AddMemoryGrainStorage(name)
  )
 ```
-Both implicit and explicit stream subscriptions are supported.
+Both implicit and explicit stream subscriptions are supported; see [Subscribe to tenant streams](#subscribe-to-tenant-streams).
+
+#### Stream filters
+To use an Orleans stream filter with a multitenant stream provider, register the filter in the same function that registers the stream provider:
+```csharp
+.AddMultitenantStreams(
+    "provider_name", (silo, name) => silo
+    .AddMemoryStreams<DefaultMemoryMessageBodySerializer>(name)
+    .AddMemoryGrainStorage(name)
+    .AddStreamFilter<MyStreamFilter>(name)
+ )
+```
+The filter is invoked for events that were sent with the tenant aware API, and it receives the same events as it would without multi tenancy. Events that were sent with a tenant unaware API are blocked before they reach the filter.
+
+Do not register a stream filter for the stream provider after `AddMultitenantStreams`. Orleans only uses the stream filter that was registered last for a stream provider, so this would disable tenant separation for the provider; to guard against that, it causes an `OrleansConfigurationException` on silo startup.
 
 ### Add multitenant communication separation
 To configure a silo to use tenant separation for grain communication, use `AddMultitenantCommunicationSeparation` . Separation will be enforced for both grain calls and streams (the latter if used together with `AddMultitenantStreams`)
@@ -225,6 +239,29 @@ Where no tenant grain is available (e.g. in a cluster client, a stateless worker
 
 **Note** that guarding against unauthorized tenant access that is not initiated from a tenant grain (e.g. when using a cluster client in an ASP.NET controller, or in a stateless worker grain or a grain service) is the responsibility of the application developer, since what constitutes a tenant context there is application specific
 
+### Subscribe to tenant streams
+A `TenantStream<T>` offers the same methods as an Orleans `IAsyncStream<T>`, including the `SubscribeAsync` methods that take delegates. Subscriptions are regular Orleans `StreamSubscriptionHandle<T>`s, so once you have a tenant stream, you subscribe, resume and unsubscribe with the regular Orleans API.
+
+- For explicit subscriptions, resume the subscriptions when the grain is activated:
+  ```csharp
+  public override async Task OnActivateAsync(CancellationToken cancellationToken)
+  {
+      var stream = this.GetTenantStreamProvider("provider_name").GetStream<int>("stream_namespace", "stream_key_within_tenant");
+
+      foreach (var handle in await stream.GetAllSubscriptionHandles())
+          await handle.ResumeAsync(OnNextAsync);
+  }
+  ```
+
+- For implicit subscriptions, either call `SubscribeAsync` on the tenant stream when the grain is activated, or implement `IStreamSubscriptionObserver` and use the `IStreamSubscriptionHandleFactory` extension method `handleFactory.CreateTenantHandle<T>()`, which is the tenant aware equivalent of `handleFactory.Create<T>()`:
+  ```csharp
+  public async Task OnSubscribed(IStreamSubscriptionHandleFactory handleFactory)
+  {
+      var handle = handleFactory.CreateTenantHandle<int>();
+      await handle.ResumeAsync(this);
+  }
+  ```
+
 ### Grain/stream key and tenant id
 Tenant id's are stored in the key of a tenant specific `GrainId` / `StreamId`. Use these methods to access the individual parts of the key:
 ```csharp
@@ -250,3 +287,22 @@ The `MultitenantStorageOptions.TenantIdForNullTenant` setting specifies the non-
 ### Tenant unaware streams
 To access tenant unaware streams (e.g. streams whose keys are defined by 3rd party code), use the Orleans built-in `IStreamProvider`. There is no need for an `ICrossTenantAuthorizer` to enable this access, because an `IStreamProvider` does not have the `TenantSeparatingStreamFilter` attached.
 
+## Upgrade from 4.x to 5.0
+Version 5.0 makes the use of tenant streams transparent after a tenant stream is obtained: the regular Orleans API can be used to resume and unsubscribe subscriptions.
+
+**Breaking changes**
+- The `SubscribeAsync` methods and `GetAllSubscriptionHandles` of `TenantStream<T>` return `StreamSubscriptionHandle<T>` instead of `StreamSubscriptionHandle<TenantEvent<T>>`. Where you declared the handle type, replace `StreamSubscriptionHandle<TenantEvent<T>>` with `StreamSubscriptionHandle<T>`
+- `TenantEvent<T>` is no longer public; this ensures that only the tenant aware API can send events to tenant streams. The serialized form of stream events is unchanged
+- Registering a stream filter for a multitenant stream provider after `AddMultitenantStreams` causes an `OrleansConfigurationException` on silo startup; before 5.0 this silently disabled tenant separation for the stream provider. Register the stream filter in the `addStreamProvider` function instead (see [Stream filters](#stream-filters))
+- `TenantStreamProvider.GetStream<T>(namespace, keyWithinTenant)` no longer interprets `keyWithinTenant` as a key that may include a tenant ID; any string is now a valid stream key within a tenant, as it already was for grains. If you pass a key that includes the tenant ID to this method (e.g. `this.GetPrimaryKeyString()` in a grain that has an implicit subscription), pass `this.GetKeyWithinTenant()` instead, or use `GetStream<T>(StreamId)`, which still accepts a key that includes the tenant ID
+
+**New**
+- `StreamSubscriptionHandle<T>.ResumeAsync` and all `StreamSubscriptionHandleExtensions.ResumeAsync` methods work on subscriptions to tenant streams
+- `handleFactory.CreateTenantHandle<T>()` for implicit subscriptions that use `IStreamSubscriptionObserver`
+- `TenantStream<T>.SubscribeAsync` methods that take a batch delegate
+- A stream filter that is registered in `addStreamProvider` is invoked; before 5.0 it was silently ignored
+
+**Fixed**
+- `TenantStream<T>.OnNextBatchAsync` threw an `InvalidCastException`
+- `StreamId.GetTenantId()` returned an incorrect value
+- `TenantStreamProvider.GetStream<T>(namespace, keyWithinTenant)` threw an `ArgumentException`, or returned a stream with a different key, for a key within a tenant that contains the `|` character

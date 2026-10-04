@@ -52,7 +52,7 @@ sealed class StreamProducerGrain : Grain, IStreamProducerGrain
 sealed class ImplicitStreamSubscriberGrain : Grain, IImplicitStreamSubscriberGrain
 {
     int? lastValue;
-    StreamSubscriptionHandle<TenantEvent<int>>? tenantAwaresubscription;
+    StreamSubscriptionHandle<int>? tenantAwaresubscription;
     StreamSubscriptionHandle<int>? tenantUnawaresubscription;
 
     async Task EnsureUnsubscribed()
@@ -91,7 +91,7 @@ sealed class ImplicitStreamSubscriberGrain : Grain, IImplicitStreamSubscriberGra
 sealed class ExplicitStreamSubscriberGrain : Grain, IExplicitStreamSubscriberGrain
 {
     int? lastValue;
-    StreamSubscriptionHandle<TenantEvent<int>>? tenantAwaresubscription;
+    StreamSubscriptionHandle<int>? tenantAwaresubscription;
     StreamSubscriptionHandle<int>? tenantUnawaresubscription;
 
     async Task EnsureUnsubscribed()

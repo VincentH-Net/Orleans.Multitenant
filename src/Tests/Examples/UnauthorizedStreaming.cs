@@ -41,7 +41,7 @@ sealed class CrossTenantStreamProducerGrain : Grain, ICrossTenantStreamProducerG
 sealed class CrossTenantExplicitStreamSubscriberGrain : Grain, ICrossTenantExplicitStreamSubscriberGrain
 {
     int? lastValue;
-    StreamSubscriptionHandle<TenantEvent<int>>? tenantAwaresubscription;
+    StreamSubscriptionHandle<int>? tenantAwaresubscription;
     StreamSubscriptionHandle<int>? tenantUnawaresubscription;
 
     async Task EnsureUnsubscribed()

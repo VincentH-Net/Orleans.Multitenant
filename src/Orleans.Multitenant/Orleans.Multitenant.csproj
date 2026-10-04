@@ -13,7 +13,7 @@
     <PropertyGroup>
         <IsPackable>true</IsPackable>
         <PackageId>Orleans.Multitenant</PackageId>
-        <PackageVersion>4.0.1</PackageVersion>
+        <PackageVersion>5.0.0</PackageVersion>
         <Title>Orleans Multitenant</Title>
         <Description>Secure, flexible tenant separation for Microsoft Orleans 10</Description>
         <Authors>VincentH.NET</Authors>
@@ -44,7 +44,7 @@
 		<PackageReference Include="Microsoft.Orleans.Runtime" Version="10.0.1" />
 		<PackageReference Include="Microsoft.Orleans.Sdk" Version="10.0.1" />
 		<PackageReference Include="Microsoft.Orleans.Streaming" Version="10.0.1" />
-        <PackageReference Include="Microsoft.SourceLink.GitHub" Version="8.0.0" PrivateAssets="All" />
+        <PackageReference Include="Microsoft.SourceLink.GitHub" Version="10.0.111" PrivateAssets="All" />
 	</ItemGroup>
 
 </Project>
