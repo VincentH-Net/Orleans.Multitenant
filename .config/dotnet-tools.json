@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "isRoot": false,
+  "tools": {
+    "innowvate.agentic": {
+      "version": "2.4.0",
+      "commands": [
+        "agentic"
+      ],
+      "rollForward": true
+    }
+  }
+}

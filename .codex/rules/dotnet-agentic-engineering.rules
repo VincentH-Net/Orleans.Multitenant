@@ -1,0 +1,26 @@
+# Installed by dna check; it overwrites this file on updates, so keep your own rules in another file.
+# Codex runs commands that match these rules outside its sandbox, with network access.
+
+prefix_rule(
+    pattern = ["dotnet"],
+    decision = "allow",
+    justification = "dotnet needs network access and writes outside the workspace (NuGet caches), so it must run outside the sandbox from the first attempt.",
+)
+
+prefix_rule(
+    pattern = ["dnx"],
+    decision = "allow",
+    justification = "dnx is the SDK shorthand for dotnet tool exec; same needs as dotnet.",
+)
+
+prefix_rule(
+    pattern = ["dna"],
+    decision = "allow",
+    justification = "dna launches dotnet tools that fetch directives and skills; same needs as dotnet.",
+)
+
+prefix_rule(
+    pattern = ["pwsh", "./New-View.ps1"],
+    decision = "allow",
+    justification = "The Uno C# Markup 2 New-View.ps1 script wraps dotnet new; same needs as dotnet.",
+)

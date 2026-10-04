@@ -1,4 +1,7 @@
-﻿# <img src="img/CSharp-Toolkit-Icon.png" alt="Backend Toolkit" width="64px" />Orleans.Multitenant
+# <img src="img/CSharp-Toolkit-Icon.png" alt="Backend Toolkit" width="64px" />Orleans.Multitenant
+
+[![built with: dna](https://img.shields.io/badge/built%20with-dna-512BD4)](https://github.com/VincentH-Net/dotnet-agentic-engineering)
+
 Secure, flexible tenant separation for Microsoft Orleans 10 on .NET 10
 
 > [![Nuget (with prereleases)](https://img.shields.io/nuget/vpre/Orleans.Multitenant?color=gold&label=NuGet:%20Orleans.Multitenant&style=plastic)](https://www.nuget.org/packages/Orleans.Multitenant)<br />
