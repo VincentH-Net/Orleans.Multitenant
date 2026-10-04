@@ -70,6 +70,27 @@ By default, the parameters passed into the storage provider instance for a tenan
 
 To do this, you can pass in an optional `GrainStorageProviderParametersFactory<TGrainStorageOptions>? getProviderParameters` parameter.
 
+When a storage provider has a constructor parameter that is not registered as a service and you do not pass it in, creating the storage provider for a tenant fails with an `InvalidOperationException` like `Unable to resolve service for type ... while attempting to activate ...`.
+
+##### Example: Azure Blob Storage for grain state
+The constructor of the Orleans Azure Blob storage provider has an `IBlobContainerFactory` parameter. This is not registered as a service; Orleans creates it from the storage options. Use `getProviderParameters` to do the same for the tenant storage providers:
+
+```csharp
+siloBuilder
+.AddMultitenantGrainStorageAsDefault<AzureBlobGrainStorage, AzureBlobStorageOptions, AzureBlobStorageOptionsValidator>(
+    (silo, name) => silo.AddAzureBlobGrainStorage(name, options =>
+        options.BlobServiceClient = new(blobStorageConnectionString)),
+
+    configureTenantOptions: (options, tenantId) => {
+        options.BlobServiceClient = new(blobStorageConnectionString);
+        options.ContainerName = $"grainstate-{tenantId.ToLowerInvariant()}"; // Blob container names must be lowercase
+    },
+
+    getProviderParameters: (services, providerName, tenantProviderName, options) =>
+        [options, options.BuildContainerFactory(services, options)]
+ )
+```
+
 ##### Example: .NET Aspire with Azure Blob Storage for grain state
 If you are using the [.NET Aspire Orleans Integration](https://learn.microsoft.com/en-us/dotnet/aspire/frameworks/orleans) to configure the default grain storage for the silo like this:
 ```csharp
@@ -338,6 +359,7 @@ Version 5.0 makes the use of tenant streams transparent after a tenant stream is
 - `TenantStream<T>.SubscribeAsync` methods that take a batch delegate
 - `TenantStream<T>.SubscribeAsync` methods that take a `StreamSubscriptionStartPosition` (new in Orleans 10.4), to start a subscription at the latest or at the earliest available event
 - A stream filter that is registered in `addStreamProvider` is invoked; before 5.0 it was silently ignored
+- When a tenant storage provider cannot be created, the exception explains that `getProviderParameters` can supply constructor parameters that are not registered as services; the readme has a separate Azure Blob Storage example for this
 
 **Fixed**
 - `TenantStream<T>.OnNextBatchAsync` threw an `InvalidCastException`

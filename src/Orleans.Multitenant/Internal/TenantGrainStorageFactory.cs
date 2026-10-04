@@ -96,6 +96,18 @@ sealed class TenantGrainStorageFactory<TGrainStorage, TGrainStorageOptions, TGra
             validator.ValidateConfiguration();
         }
 
-        return ActivatorUtilities.CreateInstance<TGrainStorage>(services, parameters: [.. providerParameters]);
+        try
+        {
+            return ActivatorUtilities.CreateInstance<TGrainStorage>(services, parameters: [.. providerParameters]);
+        }
+        catch (InvalidOperationException exception)
+        {
+            throw new InvalidOperationException(
+                $"Could not create storage provider {typeof(TGrainStorage).FullName} for tenant '{tenantId}': {exception.Message} " +
+                "If the storage provider has constructor parameters that are not registered as services, supply these with the getProviderParameters parameter of " +
+                $"{nameof(Multitenant.SiloBuilderExtensions.AddMultitenantGrainStorage)} or {nameof(Multitenant.SiloBuilderExtensions.AddMultitenantGrainStorageAsDefault)}; " +
+                "see https://github.com/VincentH-Net/Orleans.Multitenant#customize-storage-provider-constructor-parameters",
+                exception);
+        }
     }
 }
