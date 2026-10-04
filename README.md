@@ -25,7 +25,7 @@ However, creating multi tenant applications with Orleans out of the box requires
 
 ## Requirements
 - .NET 10 SDK for building and testing this repository
-- Microsoft Orleans 10 packages in consuming applications
+- Microsoft Orleans 10.4 or later packages in consuming applications
 
 ## Installation
 Install the package in silo, client and grain implementation projects:
@@ -291,15 +291,18 @@ To access tenant unaware streams (e.g. streams whose keys are defined by 3rd par
 Version 5.0 makes the use of tenant streams transparent after a tenant stream is obtained: the regular Orleans API can be used to resume and unsubscribe subscriptions.
 
 **Breaking changes**
+- Orleans 10.4.0 or later is required; 4.x required Orleans 10.0.1 or later
 - The `SubscribeAsync` methods and `GetAllSubscriptionHandles` of `TenantStream<T>` return `StreamSubscriptionHandle<T>` instead of `StreamSubscriptionHandle<TenantEvent<T>>`. Where you declared the handle type, replace `StreamSubscriptionHandle<TenantEvent<T>>` with `StreamSubscriptionHandle<T>`
 - `TenantEvent<T>` is no longer public; this ensures that only the tenant aware API can send events to tenant streams. The serialized form of stream events is unchanged
 - Registering a stream filter for a multitenant stream provider after `AddMultitenantStreams` causes an `OrleansConfigurationException` on silo startup; before 5.0 this silently disabled tenant separation for the stream provider. Register the stream filter in the `addStreamProvider` function instead (see [Stream filters](#stream-filters))
+- Like the Orleans `SubscribeAsync` methods since Orleans 10.3, the `onNextAsync` delegate of the `TenantStream<T>.SubscribeAsync` methods has a nullable `StreamSequenceToken?` parameter. With nullable reference types enabled, a handler method that declares a non-nullable `StreamSequenceToken` parameter causes warning CS8622; declare the parameter as `StreamSequenceToken?`
 - `TenantStreamProvider.GetStream<T>(namespace, keyWithinTenant)` no longer interprets `keyWithinTenant` as a key that may include a tenant ID; any string is now a valid stream key within a tenant, as it already was for grains. If you pass a key that includes the tenant ID to this method (e.g. `this.GetPrimaryKeyString()` in a grain that has an implicit subscription), pass `this.GetKeyWithinTenant()` instead, or use `GetStream<T>(StreamId)`, which still accepts a key that includes the tenant ID
 
 **New**
 - `StreamSubscriptionHandle<T>.ResumeAsync` and all `StreamSubscriptionHandleExtensions.ResumeAsync` methods work on subscriptions to tenant streams
 - `handleFactory.CreateTenantHandle<T>()` for implicit subscriptions that use `IStreamSubscriptionObserver`
 - `TenantStream<T>.SubscribeAsync` methods that take a batch delegate
+- `TenantStream<T>.SubscribeAsync` methods that take a `StreamSubscriptionStartPosition` (new in Orleans 10.4), to start a subscription at the latest or at the earliest available event
 - A stream filter that is registered in `addStreamProvider` is invoked; before 5.0 it was silently ignored
 
 **Fixed**

@@ -41,9 +41,9 @@
     </ItemGroup>
 
     <ItemGroup>
-		<PackageReference Include="Microsoft.Orleans.Runtime" Version="10.0.1" />
-		<PackageReference Include="Microsoft.Orleans.Sdk" Version="10.0.1" />
-		<PackageReference Include="Microsoft.Orleans.Streaming" Version="10.0.1" />
+		<PackageReference Include="Microsoft.Orleans.Runtime" Version="10.4.0" />
+		<PackageReference Include="Microsoft.Orleans.Sdk" Version="10.4.0" />
+		<PackageReference Include="Microsoft.Orleans.Streaming" Version="10.4.0" />
         <PackageReference Include="Microsoft.SourceLink.GitHub" Version="10.0.111" PrivateAssets="All" />
 	</ItemGroup>
 

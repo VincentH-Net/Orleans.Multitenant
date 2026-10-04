@@ -62,7 +62,7 @@ sealed class CrossTenantExplicitStreamSubscriberGrain : Grain, ICrossTenantExpli
             tenantUnawaresubscription = await this.GetTenantUnawareStream(provider, streamId).SubscribeAsync(OnNext);
     }
 
-    Task OnNext(int value, StreamSequenceToken token)
+    Task OnNext(int value, StreamSequenceToken? token)
     {
         if (lastValue is not null) throw new InvalidOperationException("Received new value before previous value was extracted");
         lastValue = value;

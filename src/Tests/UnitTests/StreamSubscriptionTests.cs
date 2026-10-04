@@ -19,6 +19,8 @@ public class StreamSubscriptionTests(ClusterFixture fixture)
         ["observer, token, filterData"         ] = (stream, receiver) => stream.SubscribeAsync(receiver.Observer, null, "filterData"),
         ["batchObserver"                       ] = (stream, receiver) => stream.SubscribeAsync(receiver.BatchObserver),
         ["batchObserver, token"                ] = (stream, receiver) => stream.SubscribeAsync(receiver.BatchObserver, null),
+        ["observer, startPosition, filterData" ] = (stream, receiver) => stream.SubscribeAsync(receiver.Observer, StreamSubscriptionStartPosition.Latest, "filterData"),
+        ["batchObserver, startPosition"        ] = (stream, receiver) => stream.SubscribeAsync(receiver.BatchObserver, StreamSubscriptionStartPosition.Latest),
         ["onNext, onError, onCompleted"        ] = (stream, receiver) => stream.SubscribeAsync(receiver.OnNext, StreamReceiver.OnError, StreamReceiver.OnCompleted),
         ["onNext, onError"                     ] = (stream, receiver) => stream.SubscribeAsync(receiver.OnNext, StreamReceiver.OnError),
         ["onNext, onCompleted"                 ] = (stream, receiver) => stream.SubscribeAsync(receiver.OnNext, StreamReceiver.OnCompleted),
@@ -31,6 +33,12 @@ public class StreamSubscriptionTests(ClusterFixture fixture)
         ["onNextBatch, onError"                ] = (stream, receiver) => stream.SubscribeAsync(receiver.OnNextBatch, StreamReceiver.OnError),
         ["onNextBatch, onCompleted"            ] = (stream, receiver) => stream.SubscribeAsync(receiver.OnNextBatch, StreamReceiver.OnCompleted),
         ["onNextBatch"                         ] = (stream, receiver) => stream.SubscribeAsync(receiver.OnNextBatch),
+    };
+
+    static readonly Dictionary<string, Func<TenantStream<int>, StreamReceiver, StreamSubscriptionStartPosition, Task<StreamSubscriptionHandle<int>>>> StartPositionOverloads = new()
+    {
+        ["observer, startPosition"             ] = (stream, receiver, startPosition) => stream.SubscribeAsync(receiver.Observer, startPosition),
+        ["batchObserver, startPosition"        ] = (stream, receiver, startPosition) => stream.SubscribeAsync(receiver.BatchObserver, startPosition),
     };
 
     /// <remarks>These are the regular Orleans <see cref="StreamSubscriptionHandle{T}"/> methods and <see cref="StreamSubscriptionHandleExtensions"/></remarks>
@@ -53,6 +61,8 @@ public class StreamSubscriptionTests(ClusterFixture fixture)
     public static TheoryData<string /*overload*/> SubscribeOverloadNames() => new([.. SubscribeOverloads.Keys]);
 
     public static TheoryData<string /*overload*/> ResumeOverloadNames() => new([.. ResumeOverloads.Keys]);
+
+    public static TheoryData<string /*overload*/> StartPositionOverloadNames() => new([.. StartPositionOverloads.Keys]);
 
     public static TheoryData<string /*observerKind*/, string /*tenantId*/> ObserverKindsAndTenants()
     {
@@ -87,6 +97,29 @@ public class StreamSubscriptionTests(ClusterFixture fixture)
 
         Assert.Equal([1, 2, 3], await receiver.ReceiveAsync(3));
         await handle.UnsubscribeAsync();
+    }
+
+    [Theory]
+    [MemberData(nameof(StartPositionOverloadNames))]
+    public async Task SubscribeAsync_WithStartPosition_ReceivesEventsFromThatPosition(string overload)
+    {
+        var stream = GetTenantStream("TenantA", ClientNamespace, ThisTestMethodId(overload));
+        StreamReceiver firstReceiver = new(), latestReceiver = new(), earliestReceiver = new();
+        var firstHandle = await stream.SubscribeAsync(firstReceiver.Observer);
+        await stream.OnNextAsync(1);
+        await stream.OnNextAsync(2);
+        Assert.Equal([1, 2], await firstReceiver.ReceiveAsync(2)); // These events are now retained by the stream provider
+
+        var latestHandle = await StartPositionOverloads[overload](stream, latestReceiver, StreamSubscriptionStartPosition.Latest);
+        var earliestHandle = await StartPositionOverloads[overload](stream, earliestReceiver, StreamSubscriptionStartPosition.EarliestAvailable);
+        await stream.OnNextAsync(3);
+
+        Assert.Equal([1, 2, 3], await earliestReceiver.ReceiveAsync(3));
+        Assert.Equal([3], await latestReceiver.ReceiveAsync(1));
+        Assert.Equal([1, 2, 3], await firstReceiver.ReceiveAsync(3));
+        await firstHandle.UnsubscribeAsync();
+        await latestHandle.UnsubscribeAsync();
+        await earliestHandle.UnsubscribeAsync();
     }
 
     [Fact]
@@ -211,14 +244,16 @@ public class StreamSubscriptionTests(ClusterFixture fixture)
         var serializer = cluster.Client.ServiceProvider.GetRequiredService<Serializer>();
         var copier = cluster.Client.ServiceProvider.GetRequiredService<DeepCopier>();
 
-        var grainStorageSerializer = ((InProcessSiloHandle)cluster.Primary).SiloHost.Services.GetRequiredService<IGrainStorageSerializer>(); // The default serializer for grain state
+        var grainStorageSerializer = Assert.IsType<InProcessSiloHandle>(cluster.Primary).SiloHost.Services.GetRequiredService<IGrainStorageSerializer>(); // The default serializer for grain state
 
         var deserializedHandle = serializer.Deserialize<StreamSubscriptionHandle<int>>(serializer.SerializeToArray(handle));
         var copiedHandle = copier.Copy(handle);
         var storedHandle = grainStorageSerializer.Deserialize<StreamSubscriptionHandle<int>>(grainStorageSerializer.Serialize(handle));
 
-        foreach (var roundtrippedHandle in (StreamSubscriptionHandle<int>[])[deserializedHandle, copiedHandle, storedHandle])
+        Assert.NotNull(deserializedHandle);
+        foreach (var roundtrippedHandle in (StreamSubscriptionHandle<int>?[])[deserializedHandle, copiedHandle, storedHandle])
         {
+            Assert.NotNull(roundtrippedHandle);
             Assert.Equal(handle, roundtrippedHandle);
             Assert.Equal(handle.HandleId, roundtrippedHandle.HandleId);
             Assert.Equal(handle.StreamId, roundtrippedHandle.StreamId);

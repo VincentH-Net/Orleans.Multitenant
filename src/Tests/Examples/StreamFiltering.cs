@@ -8,9 +8,9 @@ namespace OrleansMultitenant.Tests.Examples.StreamFiltering;
 sealed class EvenNumbersStreamFilter : IStreamFilter
 {
     /// <remarks>static can be used to access the same object instances in silo's and tests, because <see cref="Orleans.TestingHost.TestCluster"/> uses in-process silo's</remarks>
-    internal static ConcurrentQueue<(StreamId StreamId, object Item, string FilterData)> Calls { get; } = new();
+    internal static ConcurrentQueue<(StreamId StreamId, object Item, string? FilterData)> Calls { get; } = new();
 
-    public bool ShouldDeliver(StreamId streamId, object item, string filterData)
+    public bool ShouldDeliver(StreamId streamId, object item, string? filterData)
     {
         Calls.Enqueue((streamId, item, filterData));
         return item is int number && number % 2 == 0;

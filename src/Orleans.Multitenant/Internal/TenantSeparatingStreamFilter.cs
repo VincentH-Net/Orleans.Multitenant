@@ -27,10 +27,10 @@ sealed class TenantSeparatingStreamFilter : IStreamFilter
         logger.LogInformation("created");
     }
 
-    public bool ShouldDeliver(StreamId streamId, object item, string filterData)
+    public bool ShouldDeliver(StreamId streamId, object item, string? filterData)
     {
         if (item is ITenantEvent tenantEvent) // This forces the tenant aware API to be used
-            return tenantUnawareFilter.Value?.ShouldDeliver(streamId, tenantEvent.Event, filterData) ?? true;
+            return tenantUnawareFilter.Value?.ShouldDeliver(streamId, tenantEvent.Event!, filterData) ?? true; // A null event is passed on as is, like Orleans does
 
         logger.TenantUnawareStreamApiUsed(streamId, item);
         return false;

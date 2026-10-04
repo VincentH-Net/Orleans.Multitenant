@@ -116,33 +116,41 @@ public readonly record struct TenantStream<T> : IComparable<TenantStream<T>>
     public Task<StreamSubscriptionHandle<T>> SubscribeAsync(IAsyncBatchObserver<T> observer, StreamSequenceToken? token)
     => stream.SubscribeAsync(new TenantStreamBatchObserver<T>(observer), token).AsTenantStreamSubscriptionHandle();
 
+    /// <inheritdoc cref="AsyncObservableExtensions.SubscribeAsync{T}(IAsyncObservable{T}, IAsyncObserver{T}, StreamSubscriptionStartPosition, string?)"/>
+    public Task<StreamSubscriptionHandle<T>> SubscribeAsync(IAsyncObserver<T> observer, StreamSubscriptionStartPosition startPosition, string? filterData = null)
+    => stream.SubscribeAsync(new TenantStreamObserver<T>(observer), startPosition, filterData).AsTenantStreamSubscriptionHandle();
+
+    /// <inheritdoc cref="AsyncBatchObservableExtensions.SubscribeAsync{T}(IAsyncBatchObservable{T}, IAsyncBatchObserver{T}, StreamSubscriptionStartPosition)"/>
+    public Task<StreamSubscriptionHandle<T>> SubscribeAsync(IAsyncBatchObserver<T> observer, StreamSubscriptionStartPosition startPosition)
+    => stream.SubscribeAsync(new TenantStreamBatchObserver<T>(observer), startPosition).AsTenantStreamSubscriptionHandle();
+
     /// <inheritdoc cref="AsyncObservableExtensions.SubscribeAsync{T}(IAsyncObservable{T}, Func{T, StreamSequenceToken, Task}, Func{Exception, Task}, Func{Task})"/>
     public Task<StreamSubscriptionHandle<T>> SubscribeAsync(
-        Func<T, StreamSequenceToken, Task> onNextAsync,
+        Func<T, StreamSequenceToken?, Task> onNextAsync,
         Func<Exception, Task> onErrorAsync,
         Func<Task> onCompletedAsync)
     => stream.SubscribeAsync((item, token) => onNextAsync(item.Event, token), onErrorAsync, onCompletedAsync).AsTenantStreamSubscriptionHandle();
 
     /// <inheritdoc cref="AsyncObservableExtensions.SubscribeAsync{T}(IAsyncObservable{T}, Func{T, StreamSequenceToken, Task}, Func{Exception, Task})"/>
     public Task<StreamSubscriptionHandle<T>> SubscribeAsync(
-        Func<T, StreamSequenceToken, Task> onNextAsync,
+        Func<T, StreamSequenceToken?, Task> onNextAsync,
         Func<Exception, Task> onErrorAsync)
     => SubscribeAsync(onNextAsync, onErrorAsync, DefaultOnCompleted);
 
     /// <inheritdoc cref="AsyncObservableExtensions.SubscribeAsync{T}(IAsyncObservable{T}, Func{T, StreamSequenceToken, Task}, Func{Task})"/>
     public Task<StreamSubscriptionHandle<T>> SubscribeAsync(
-        Func<T, StreamSequenceToken, Task> onNextAsync,
+        Func<T, StreamSequenceToken?, Task> onNextAsync,
         Func<Task> onCompletedAsync)
     => SubscribeAsync(onNextAsync, DefaultOnError, onCompletedAsync);
 
     /// <inheritdoc cref="AsyncObservableExtensions.SubscribeAsync{T}(IAsyncObservable{T}, Func{T, StreamSequenceToken, Task})"/>
     public Task<StreamSubscriptionHandle<T>> SubscribeAsync(
-        Func<T, StreamSequenceToken, Task> onNextAsync)
+        Func<T, StreamSequenceToken?, Task> onNextAsync)
     => SubscribeAsync(onNextAsync, DefaultOnError, DefaultOnCompleted);
 
     /// <inheritdoc cref="AsyncObservableExtensions.SubscribeAsync{T}(IAsyncObservable{T}, Func{T, StreamSequenceToken, Task}, Func{Exception, Task}, Func{Task}, StreamSequenceToken)"/>
     public Task<StreamSubscriptionHandle<T>> SubscribeAsync(
-        Func<T, StreamSequenceToken, Task> onNextAsync,
+        Func<T, StreamSequenceToken?, Task> onNextAsync,
         Func<Exception, Task> onErrorAsync,
         Func<Task> onCompletedAsync,
         StreamSequenceToken token)
@@ -150,21 +158,21 @@ public readonly record struct TenantStream<T> : IComparable<TenantStream<T>>
 
     /// <inheritdoc cref="AsyncObservableExtensions.SubscribeAsync{T}(IAsyncObservable{T}, Func{T, StreamSequenceToken, Task}, Func{Exception, Task}, StreamSequenceToken)"/>
     public Task<StreamSubscriptionHandle<T>> SubscribeAsync(
-        Func<T, StreamSequenceToken, Task> onNextAsync,
+        Func<T, StreamSequenceToken?, Task> onNextAsync,
         Func<Exception, Task> onErrorAsync,
         StreamSequenceToken token)
     => SubscribeAsync(onNextAsync, onErrorAsync, DefaultOnCompleted, token);
 
     /// <inheritdoc cref="AsyncObservableExtensions.SubscribeAsync{T}(IAsyncObservable{T}, Func{T, StreamSequenceToken, Task}, Func{Task}, StreamSequenceToken)"/>
     public Task<StreamSubscriptionHandle<T>> SubscribeAsync(
-        Func<T, StreamSequenceToken, Task> onNextAsync,
+        Func<T, StreamSequenceToken?, Task> onNextAsync,
         Func<Task> onCompletedAsync,
         StreamSequenceToken token)
     => SubscribeAsync(onNextAsync, DefaultOnError, onCompletedAsync, token);
 
     /// <inheritdoc cref="AsyncObservableExtensions.SubscribeAsync{T}(IAsyncObservable{T}, Func{T, StreamSequenceToken, Task}, StreamSequenceToken)"/>
     public Task<StreamSubscriptionHandle<T>> SubscribeAsync(
-        Func<T, StreamSequenceToken, Task> onNextAsync,
+        Func<T, StreamSequenceToken?, Task> onNextAsync,
         StreamSequenceToken token)
     => SubscribeAsync(onNextAsync, DefaultOnError, DefaultOnCompleted, token);
 

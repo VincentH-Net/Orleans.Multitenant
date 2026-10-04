@@ -17,7 +17,7 @@ public class TenantStreamApiTests
 
         var orleansStreamMethods = OrleansStreamMethods().ToList();
 
-        Assert.True(orleansStreamMethods.Count >= 22, $"Expected to find at least the 22 stream methods of Orleans 10 but found {orleansStreamMethods.Count}");
+        Assert.True(orleansStreamMethods.Count >= 24, $"Expected to find at least the 24 stream methods of Orleans 10.4 but found {orleansStreamMethods.Count}");
         Assert.Empty(orleansStreamMethods.Except(tenantStreamMethods));
     }
 

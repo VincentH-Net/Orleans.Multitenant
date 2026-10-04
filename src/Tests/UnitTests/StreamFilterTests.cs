@@ -15,12 +15,16 @@ public sealed class StreamFilterTests(StreamFilterTests.ClusterFixture fixture) 
 
     readonly TestCluster cluster = fixture.Cluster;
 
-    [Fact]
-    public async Task StreamFilter_RegisteredInAddStreamProvider_FiltersEventsSentWithTenantAwareApi()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task StreamFilter_RegisteredInAddStreamProvider_FiltersEventsSentWithTenantAwareApi(bool subscribeWithStartPosition)
     {
-        var stream = cluster.Client.GetTenantStreamProvider(ClusterFixture.StreamProviderName, "TenantA").GetStream<int>(Namespace, ThisTestMethodId());
+        var stream = cluster.Client.GetTenantStreamProvider(ClusterFixture.StreamProviderName, "TenantA").GetStream<int>(Namespace, ThisTestMethodId(subscribeWithStartPosition.ToString()));
         StreamReceiver receiver = new();
-        var handle = await stream.SubscribeAsync(receiver.Observer, null, "the filter data");
+        var handle = subscribeWithStartPosition
+            ? await stream.SubscribeAsync(receiver.Observer, StreamSubscriptionStartPosition.Latest, "the filter data")
+            : await stream.SubscribeAsync(receiver.Observer, null, "the filter data");
 
         await stream.OnNextAsync(1); // Odd number, so the filter blocks it
         await stream.OnNextAsync(2);

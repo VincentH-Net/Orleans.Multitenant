@@ -73,7 +73,7 @@ sealed class ImplicitStreamSubscriberGrain : Grain, IImplicitStreamSubscriberGra
             tenantUnawaresubscription = await this.GetTenantUnawareStream(streamId).SubscribeAsync(OnNext);
     }
 
-    Task OnNext(int value, StreamSequenceToken token)
+    Task OnNext(int value, StreamSequenceToken? token)
     {
         if (lastValue is not null) throw new InvalidOperationException("Received new value before previous value was extracted");
         lastValue = value;
@@ -112,7 +112,7 @@ sealed class ExplicitStreamSubscriberGrain : Grain, IExplicitStreamSubscriberGra
             tenantUnawaresubscription = await this.GetTenantUnawareStream(streamId).SubscribeAsync(OnNext);
     }
 
-    Task OnNext(int value, StreamSequenceToken token)
+    Task OnNext(int value, StreamSequenceToken? token)
     {
         if (lastValue is not null) throw new InvalidOperationException("Received new value before previous value was extracted");
         lastValue = value;
