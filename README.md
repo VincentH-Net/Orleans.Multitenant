@@ -4,6 +4,9 @@
 
 Secure, flexible tenant separation for Microsoft Orleans 10 on .NET 10
 
+> [!TIP]
+> You can get **agentic engineering** support to let agents use this library in [.NET Agentic Engineering](https://github.com/VincentH-Net/dotnet-agentic-engineering)
+
 > [![Nuget (with prereleases)](https://img.shields.io/nuget/vpre/Orleans.Multitenant?color=gold&label=NuGet:%20Orleans.Multitenant&style=plastic)](https://www.nuget.org/packages/Orleans.Multitenant)<br />
 > (install in silo client and grain implementation projects)
 
@@ -337,7 +340,7 @@ Even though the null tenant cannot be specified in the tenant aware API's, it is
 
 To access null tenant grains, use the Orleans built-in `IGrainFactory`, and register an `ICrossTenantAuthorizer` that allows access between the null tenant and other tenants. You can also exclude specific interface namespaces from the need to be authorized by registering an `IGrainCallTenantSeparator` (see [Add multitenant communication separation](#add-multitenant-communication-separation)).
 
-The `MultitenantStorageOptions.TenantIdForNullTenant` setting specifies the non-null string value representing the null tenant. This value can be specified in `appsettings.json` in the `MultitenantStorage` section, and is passed as the `tenantId` parameter of the `configureTenantOptions` action, which can be specified in `AddMultitenantGrainStorage` methods. This setting allows developers to choose a name for the null tenant in storage that does not conflict with other valid tenant names in the application.
+The `MultitenantStorageOptions.TenantIdForNullTenant` setting specifies the non-null string value representing the null tenant. This value can be specified in `appsettings.json` in the `MultitenantStorage:<provider name>` section (the name of the default storage provider is `Default`), and is passed as the `tenantId` parameter of the `configureTenantOptions` action, which can be specified in `AddMultitenantGrainStorage` methods. This setting allows developers to choose a name for the null tenant in storage that does not conflict with other valid tenant names in the application.
 
 ### Tenant unaware streams
 To access tenant unaware streams (e.g. streams whose keys are defined by 3rd party code), use the Orleans built-in `IStreamProvider`. There is no need for an `ICrossTenantAuthorizer` to enable this access, because an `IStreamProvider` does not have the `TenantSeparatingStreamFilter` attached.
