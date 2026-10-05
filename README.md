@@ -348,6 +348,7 @@ Version 5.0 makes the use of tenant streams transparent after a tenant stream is
 **Breaking changes**
 - Orleans 10.4.0 or later is required; 4.x required Orleans 10.0.1 or later
 - The `SubscribeAsync` methods and `GetAllSubscriptionHandles` of `TenantStream<T>` return `StreamSubscriptionHandle<T>` instead of `StreamSubscriptionHandle<TenantEvent<T>>`. Where you declared the handle type, replace `StreamSubscriptionHandle<TenantEvent<T>>` with `StreamSubscriptionHandle<T>`
+- A subscription handle that a 4.x application stored in grain state cannot be read by 5.0. If you only replace the type of the state member as described above, the grain state fails to load and the grain cannot be activated. Instead, give the state member a new name and a new `[Id]`, and get the handle from `GetAllSubscriptionHandles()` when the grain is activated (see [Subscribe to tenant streams](#subscribe-to-tenant-streams)). The subscriptions themselves are not affected; they continue to work after the upgrade
 - `TenantEvent<T>` is no longer public; this ensures that only the tenant aware API can send events to tenant streams. The serialized form of stream events is unchanged
 - Registering a stream filter for a multitenant stream provider after `AddMultitenantStreams` causes an `OrleansConfigurationException` on silo startup; before 5.0 this silently disabled tenant separation for the stream provider. Register the stream filter in the `addStreamProvider` function instead (see [Stream filters](#stream-filters))
 - Like the Orleans `SubscribeAsync` methods since Orleans 10.3, the `onNextAsync` delegate of the `TenantStream<T>.SubscribeAsync` methods has a nullable `StreamSequenceToken?` parameter. With nullable reference types enabled, a handler method that declares a non-nullable `StreamSequenceToken` parameter causes warning CS8622; declare the parameter as `StreamSequenceToken?`
@@ -365,3 +366,4 @@ Version 5.0 makes the use of tenant streams transparent after a tenant stream is
 - `TenantStream<T>.OnNextBatchAsync` threw an `InvalidCastException`
 - `StreamId.GetTenantId()` returned an incorrect value
 - `TenantStreamProvider.GetStream<T>(namespace, keyWithinTenant)` threw an `ArgumentException`, or returned a stream with a different key, for a key within a tenant that contains the `|` character
+- 5.0.1: events in tenant streams lost their content, without an error, when the stream provider serializes events with the Orleans JSON serializer instead of with the Orleans serializer

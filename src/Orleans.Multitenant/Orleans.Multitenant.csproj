@@ -13,7 +13,7 @@
     <PropertyGroup>
         <IsPackable>true</IsPackable>
         <PackageId>Orleans.Multitenant</PackageId>
-        <PackageVersion>5.0.0</PackageVersion>
+        <PackageVersion>5.0.1</PackageVersion>
         <!-- The tag of the GitHub release for PackageVersion, e.g. 5-0-0. The release notes link in the package readme is generated from this -->
         <ReleaseTag>$(PackageVersion.Replace('.', '-'))</ReleaseTag>
         <Title>Orleans Multitenant</Title>

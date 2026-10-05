@@ -1,4 +1,5 @@
-﻿using Orleans.Multitenant.Internal;
+﻿using Newtonsoft.Json;
+using Orleans.Multitenant.Internal;
 using Orleans.Streams;
 
 namespace Orleans.Multitenant;
@@ -217,12 +218,14 @@ public readonly record struct TenantStream<T> : IComparable<TenantStream<T>>
 /// Note that this wrapper does not add any data to <typeparamref name="T"/>; it only marks <typeparamref name="T"/> with an internal interface,
 /// which is used by the stream filter to guard tenant separation - the filter blocks events sent with a tenant unaware API through a tenant specific stream.<br />
 /// This type is internal to ensure that only the tenant aware API can mark events; it never appears in the public API.<br />
-/// Do not change the name or the namespace of this type: these are part of the serialized form of events in tenant streams
+/// Do not change the name or the namespace of this type: these are part of the serialized form of events in tenant streams.<br />
+/// Like the Orleans stream types, this type supports both the Orleans serializer and the Orleans JSON serializer; a stream provider can use either to serialize events
 /// </remarks>
 [GenerateSerializer]
+[JsonObject(MemberSerialization.OptIn)]
 readonly struct TenantEvent<T> : ITenantEvent
 {
-    [Id(0)] internal T Event { get; init; }
+    [Id(0), JsonProperty] internal T Event { get; init; }
 
     object? ITenantEvent.Event => Event;
 
