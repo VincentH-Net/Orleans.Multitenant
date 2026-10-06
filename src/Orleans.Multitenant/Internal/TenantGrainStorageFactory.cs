@@ -86,8 +86,15 @@ sealed class TenantGrainStorageFactory<TGrainStorage, TGrainStorageOptions, TGra
         if (options is IStorageProviderSerializerOptions serializerOptions && serializerOptions.GrainStorageSerializer == default)
             serializerOptions.GrainStorageSerializer = services.GetKeyedService<IGrainStorageSerializer>(name) ?? services.GetRequiredService<IGrainStorageSerializer>();
 
-        List<object> providerParameters = [tenantProviderName];
-        providerParameters.AddRange(getProviderParameters?.Invoke(services, name, tenantProviderName, options) ?? [options]);
+        // If getProviderParameters is supplied, the caller takes full ownership of the constructor
+        // parameter list (needed for providers like RavenDbGrainStorage whose constructors do not
+        // follow the conventional (string name, TOptions options) signature).
+        // Otherwise, fall back to the original convention: [tenantProviderName, options].
+        // This keeps backward compatibility for standard providers (Azure, AdoNet, etc.) and is
+        // suitable to PR upstream to VincentH-Net/Orleans.Multitenant.
+        List<object> providerParameters = getProviderParameters is not null
+            ? [.. getProviderParameters.Invoke(services, name, tenantProviderName, options)]
+            : [tenantProviderName, options];
 
         var configuredOptions = providerParameters.OfType<TGrainStorageOptions>().SingleOrDefault();
         if (configuredOptions is not null)
