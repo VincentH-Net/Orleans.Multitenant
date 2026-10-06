@@ -13,10 +13,12 @@
     <PropertyGroup>
         <IsPackable>true</IsPackable>
         <PackageId>Orleans.Multitenant</PackageId>
-        <!-- To release a new version, follow docs/releasing.md -->
-        <PackageVersion>5.0.1</PackageVersion>
-        <!-- The tag of the GitHub release for PackageVersion, e.g. 5-0-0. The release notes link in the package readme is generated from this -->
-        <ReleaseTag>$(PackageVersion.Replace('.', '-'))</ReleaseTag>
+        <!-- To release a new version, follow docs/releasing.md. The package version, file version, informational version and release tag are derived from this version;
+             for a prerelease, add e.g. <VersionSuffix>rc1</VersionSuffix> -->
+        <VersionPrefix>5.0.1</VersionPrefix>
+        <!-- The assembly version only changes with the major version, as the .NET library guidance recommends -->
+        <AssemblyVersion>$(VersionPrefix.Substring(0, $(VersionPrefix.IndexOf('.')))).0.0.0</AssemblyVersion>
+        <FileVersion>$(VersionPrefix)</FileVersion>
         <Title>Orleans Multitenant</Title>
         <Description>Secure, flexible tenant separation for Microsoft Orleans 10</Description>
         <Authors>VincentH.NET</Authors>
@@ -43,13 +45,15 @@
         <None Include="$(IntermediateOutputPath)Readme.md" Pack="true" PackagePath="\" Visible="false" />
     </ItemGroup>
 
-    <!-- The package readme is generated from Readme.md, so that its release notes link always matches PackageVersion -->
+    <!-- The package readme is generated from Readme.md, so that its release notes link always matches Version -->
     <Target Name="GeneratePackageReadme" BeforeTargets="BeforeBuild">
         <PropertyGroup>
+            <!-- The tag of the GitHub release for Version, e.g. 5-0-1 or 5-0-1-rc1. The release notes link in the package readme is generated from this -->
+            <ReleaseTag>$(Version.Replace('.', '-'))</ReleaseTag>
             <PackageReadmeTemplate>$([System.IO.File]::ReadAllText('$(MSBuildProjectDirectory)/Readme.md'))</PackageReadmeTemplate>
         </PropertyGroup>
         <Error Condition="!$(PackageReadmeTemplate.Contains('{ReleaseTag}'))"
-               Text="Readme.md must link to the release notes with the {ReleaseTag} placeholder; do not write a release tag in Readme.md, it is generated from PackageVersion" />
+               Text="Readme.md must link to the release notes with the {ReleaseTag} placeholder; do not write a release tag in Readme.md, it is generated from Version" />
         <WriteLinesToFile File="$(IntermediateOutputPath)Readme.md"
                           Lines="$([MSBuild]::Escape($(PackageReadmeTemplate.Replace('{ReleaseTag}', '$(ReleaseTag)'))))"
                           Overwrite="true" WriteOnlyWhenDifferent="true" />

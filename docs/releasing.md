@@ -4,7 +4,7 @@ The steps for a release, in order. The package that is uploaded is the package t
 
 ## 1. Prepare the release in a pull request
 
-- **Version**: set `PackageVersion` in `src/Orleans.Multitenant/Orleans.Multitenant.csproj`. The release tag (`5-0-1`) and the release notes link in the package readme are derived from it; do not write the tag anywhere else
+- **Version**: set `VersionPrefix` in `src/Orleans.Multitenant/Orleans.Multitenant.csproj` (and `VersionSuffix` for a prerelease). The package version, the file version, the assembly version (major version only), the release tag (`5-0-1`) and the release notes link in the package readme are derived from it; do not write any of these anywhere else
 - **Readme**: update `README.md` for the changes, including the requirements and the upgrade section (breaking changes, new, fixed)
 - **Tests**: all tests pass and the build has no warnings:
 

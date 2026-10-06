@@ -364,6 +364,7 @@ Version 5.0 makes the use of tenant streams transparent after a tenant stream is
 - `TenantStream<T>.SubscribeAsync` methods that take a `StreamSubscriptionStartPosition` (new in Orleans 10.4), to start a subscription at the latest or at the earliest available event
 - A stream filter that is registered in `addStreamProvider` is invoked; before 5.0 it was silently ignored
 - When a tenant storage provider cannot be created, the exception explains that `getProviderParameters` can supply constructor parameters that are not registered as services; the readme has a separate Azure Blob Storage example for this
+- 5.0.1: the assembly version is the major version of the package (`5.0.0.0`) and the file version is the package version; before 5.0.1 both were `1.0.0.0` in every release
 
 **Fixed**
 - `TenantStream<T>.OnNextBatchAsync` threw an `InvalidCastException`
