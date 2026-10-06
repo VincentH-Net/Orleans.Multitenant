@@ -1,6 +1,6 @@
 # Releasing Orleans.Multitenant
 
-The steps for a release, in order. The package that is uploaded is the package that was tested: the pull request is merged with a fast-forward, so that `main` points at the exact commit that was built and tested. The examples use version 5.0.1 and branch `v5.0.1-json-stream-events`.
+The steps for a release, in order. The package is built and tested on the branch before the merge, and that same package file is uploaded: the pull request is merged with a fast-forward, so that `main` points at the exact commit it was built from. The examples use version 5.0.1 and branch `v5.0.1-json-stream-events`.
 
 ## 1. Prepare the release in a pull request
 
@@ -16,7 +16,7 @@ The steps for a release, in order. The package that is uploaded is the package t
 
 ## 2. Build and verify the package on the branch
 
-Do this on the branch, when the pull request is reviewed and ready to merge.
+Do this on the branch, when the pull request is reviewed and ready to merge. The package from this step is the package that is uploaded in step 4. If anything fails, fix it on the branch and start step 2 again.
 
 1. Check that the branch contains everything on `main`; this command must print nothing:
 
@@ -38,7 +38,7 @@ Do this on the branch, when the pull request is reviewed and ready to merge.
    dotnet test src/Tests/Orleans.Multitenant.Tests.csproj -c Release
    ```
 
-4. Check that the library that the tests used is the library in the package; these two commands must print the same hash. Keep the hash for step 3:
+4. Check that the library that the tests used is the library in the package; these two commands must print the same hash:
 
    ```bash
    shasum -a 256 src/Tests/bin/Release/net10.0/Orleans.Multitenant.dll
@@ -48,9 +48,9 @@ Do this on the branch, when the pull request is reviewed and ready to merge.
    unzip -p src/Orleans.Multitenant/bin/Release/Orleans.Multitenant.5.0.1.nupkg lib/net10.0/Orleans.Multitenant.dll | shasum -a 256
    ```
 
-## 3. Merge with a fast-forward and build the package to upload
+## 3. Merge with a fast-forward
 
-1. Merge locally with a fast-forward, so that `main` points at the tested commit. Do not use the merge button of the pull request: each of its options creates a new commit, so the released build would differ from the tested build:
+1. Merge locally with a fast-forward, so that `main` points at the commit that the package was built from. Do not use the merge button of the pull request: each of its options creates a new commit, which the package was not built from:
 
    ```bash
    git switch main && git merge --ff-only origin/main && git merge --ff-only v5.0.1-json-stream-events && git push origin main
@@ -62,28 +62,18 @@ Do this on the branch, when the pull request is reviewed and ready to merge.
    git push origin --delete v5.0.1-json-stream-events && git branch -d v5.0.1-json-stream-events
    ```
 
-2. Build the package on `main`, so that the package records `main` as the branch it was built from:
-
-   ```bash
-   dotnet build src/Orleans.Multitenant/Orleans.Multitenant.csproj -c Release
-   ```
-
-3. Check that this is the tested library. The hash must equal the hash from step 2.4, and the commit in the package must be `git rev-parse HEAD`:
-
-   ```bash
-   unzip -p src/Orleans.Multitenant/bin/Release/Orleans.Multitenant.5.0.1.nupkg lib/net10.0/Orleans.Multitenant.dll | shasum -a 256
-   ```
+2. Check that the package was built from the commit that `main` now points at; the commit in the package metadata must equal `git rev-parse HEAD`:
 
    ```bash
    unzip -p src/Orleans.Multitenant/bin/Release/Orleans.Multitenant.5.0.1.nupkg Orleans.Multitenant.nuspec | grep -o '<repository[^>]*>'
    ```
 
-   The hashes are equal because the build is deterministic and the commit is the same; only the branch name in the package metadata changes. A different hash means that the checkout or the build environment differs from what was tested: stop and find out why.
+   Do not build again: a build records the commit it was built from, so a rebuild on `main` gives a different file for the same source. The package metadata names the branch it was built on; tools do not use that, Source Link works from the commit.
 
 ## 4. Publish
 
 1. **GitHub release**: create a release with tag `5-0-1` on `main` and title `5.0.1`. Write the release notes for users of the library: the breaking changes and the areas they are limited to, what is new, what is fixed, and then the list of commits since the previous release. The package readme links to this release, so publish it together with the package
-2. **NuGet**: upload the `.nupkg` from step 3 to [nuget.org](https://www.nuget.org/packages/Orleans.Multitenant), and the `.snupkg` (symbols) next to it
+2. **NuGet**: upload the `.nupkg` that was built and tested in step 2 to [nuget.org](https://www.nuget.org/packages/Orleans.Multitenant), and the `.snupkg` (symbols) next to it
 3. **Local package cache**: when the package is listed on nuget.org, delete `~/.nuget/packages/orleans.multitenant/5.0.1`, so that this machine uses the published package instead of a local build
 
 ## 5. Update the agent skill
